@@ -1,0 +1,8 @@
+=== Loan calculation - 2026-11-24 13:32:59 ===
+Loan amount:          10,000.00
+Annual interest rate: 5.0%
+Term:                 3 months (3 months)
+Monthly payment:      3,361.15
+Total repaid:         10,083.45
+Total interest:       83.45
+
