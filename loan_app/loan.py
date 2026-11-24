@@ -33,11 +33,19 @@ MAX_RATE = 100.0       # sensible upper limit for annual rate (%)
 MAX_MONTHS = 600       # 50 years
 
 
-# =====================================================================
-# A. CALCULATIONS
-# =====================================================================
+             
+             
+             
+             
+             
+             
+             
+             # A. CALCULATIONS
+
 def payment_exact(amount, annual_rate, months):
+
     """Fixed monthly payment (unrounded): P*r / (1 - (1+r)^-n)."""
+
     r = annual_rate / 100 / 12
     if r == 0:
         return amount / months
@@ -49,7 +57,9 @@ def monthly_payment(amount, annual_rate, months):
 
 
 def totals_from_formula(amount, annual_rate, months):
+
     """Headline numbers: (monthly payment, total repaid, total interest)."""
+
     exact = payment_exact(amount, annual_rate, months)
     total = round(exact * months, 2)
     return round(exact, 2), total, round(total - amount, 2)
@@ -57,11 +67,14 @@ def totals_from_formula(amount, annual_rate, months):
 
 def build_schedule(amount, annual_rate, months, extra=0.0, payment=None):
     """
+
     Full amortisation schedule, rounded to kobo every month.
     The last payment is adjusted so the final balance is exactly 0.00.
     extra   : extra amount paid towards principal every month.
     payment : override the regular payment (used by affordability mode).
+
     """
+
     r = annual_rate / 100 / 12
     if payment is None:
         payment = monthly_payment(amount, annual_rate, months)
@@ -69,11 +82,14 @@ def build_schedule(amount, annual_rate, months, extra=0.0, payment=None):
     rows = []
     month = 0
     while balance > 0:
+        
         month += 1
         interest = round(balance * r, 2)
         principal = round(payment - interest + extra, 2)
+
         # clear the loan on the last scheduled month or when the
         # payment is enough to cover what is left
+        
         if principal >= balance or (extra == 0 and month >= months):
             principal = balance
         paid = round(interest + principal, 2)
