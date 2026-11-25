@@ -74,6 +74,16 @@ class LoanCalculatorTests(unittest.TestCase):
         self.assertEqual(calculate_months_needed(300_000, 8, exact_pmt), 240)
         self.assertIsNone(calculate_months_needed(100_000, 12, 500))
 
+    def test_regular_payment_covers_rounded_interest(self):
+        loan = create_loan(100_000.02, 100, 600)
+        schedule = loan["schedule"]
+        self.assertEqual(loan["payment"], 8333.34)
+        self.assertEqual(schedule[0]["interest"], 8333.34)
+        self.assertEqual(schedule[0]["balance"], 100_000.02)
+        self.assertTrue(all(row["principal"] >= 0 for row in schedule))
+        self.assertEqual(schedule[-1]["payment"], 108_333.36)
+        self.assertEqual(schedule[-1]["balance"], 0)
+
     def test_payoff_term_respects_cent_rounded_budget(self):
         schedule = build_payoff_schedule(100_000, 6, 500.01)
         self.assertEqual(calculate_months_needed(100_000, 6, 500.01), 2185)

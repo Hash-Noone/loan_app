@@ -45,14 +45,17 @@ def _payment_cap_cents(payment: float) -> int:
     return int((Decimal(str(payment)) * 100).to_integral_value(rounding=ROUND_DOWN))
 
 
+def _monthly_interest_cents(balance: int, annual_rate: Decimal) -> int:
+    return round(balance * annual_rate / 1200)
+
+
 def _schedule_rows(
-    balance: int, annual_rate: float, payment: int, months: int, adjust_final: bool
+    balance: int, annual_rate: Decimal, payment: int, months: int, adjust_final: bool
 ) -> Iterator[tuple[int, int, int, int]]:
-    rate = Decimal(str(annual_rate))
     for month in range(1, months + 1):
         if balance <= 0:
             break
-        interest = round(balance * rate / 1200)
+        interest = _monthly_interest_cents(balance, annual_rate)
         if adjust_final and month == months:
             principal = balance
         elif not adjust_final and payment <= interest:
@@ -72,9 +75,12 @@ def build_schedule(
 ) -> list[dict]:
     """Build a schedule; capped payments may leave a balance at the term limit."""
     adjust_final = payment_override is None and extra_monthly == 0
+    balance_cents = _to_cents(amount)
+    rate = Decimal(str(annual_rate))
     if payment_override is None:
-        regular_payment = _to_cents(
-            calculate_monthly_payment(amount, annual_rate, months)
+        regular_payment = max(
+            _to_cents(calculate_monthly_payment(amount, annual_rate, months)),
+            _monthly_interest_cents(balance_cents, rate),
         )
         payment = regular_payment + _payment_cap_cents(extra_monthly)
         limit = months if adjust_final else PAYOFF_MONTH_LIMIT
@@ -93,7 +99,7 @@ def build_schedule(
             "balance": balance / 100,
         }
         for month, interest, principal, balance in _schedule_rows(
-            _to_cents(amount), annual_rate, payment, limit, adjust_final
+            balance_cents, rate, payment, limit, adjust_final
         )
     ]
 
@@ -184,11 +190,12 @@ def calculate_max_loan_for_payment(
     if annual_rate == 0:
         return high / 100
 
+    rate = Decimal(str(annual_rate))
     while low < high:
         principal = (low + high + 1) // 2
         balance = principal
         for _, _, _, balance in _schedule_rows(
-            principal, annual_rate, payment_cents, months, adjust_final=False
+            principal, rate, payment_cents, months, adjust_final=False
         ):
             pass
         if balance == 0:
