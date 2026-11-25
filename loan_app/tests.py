@@ -23,7 +23,7 @@ from calculations import (
     calculate_months_needed,
     evaluate_extra_payment,
 )
-from cli import handle_affordability, handle_new_loan
+from cli import handle_affordability, handle_new_loan, print_comparison_table
 from models import create_loan
 from storage import save_schedule_csv, save_summary_text
 
@@ -169,6 +169,25 @@ class LoanCalculatorTests(unittest.TestCase):
             self.assertIn("108,333.33", quote)
             self.assertIn("5,099,998.00", quote)
             self.assertIn("4,999,998.00", quote)
+
+    def test_quotes_disclose_payoff_month_when_loan_ends_early(self):
+        loan = create_loan(0.06, 0, 10)
+        self.assertEqual(loan["schedule"][-1]["month"], 6)
+
+        output = StringIO()
+        with redirect_stdout(output):
+            print_comparison_table([("Early payoff", loan)])
+        self.assertIn("10 months", output.getvalue())
+        self.assertIn("paid off in month 6", output.getvalue())
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "summary.txt"
+            save_summary_text(loan, path)
+            summary = dict(
+                line.split(":", 1) for line in path.read_text().splitlines()[1:] if line
+            )
+        self.assertEqual(summary["Term"].strip(), "10 months (10 months)")
+        self.assertEqual(summary["Payoff month"].strip(), "6")
 
     def test_early_settlement(self):
         loan = create_loan(500_000, 10, 120)

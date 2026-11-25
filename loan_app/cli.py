@@ -193,6 +193,14 @@ def print_comparison_table(options: list[tuple[str, dict]]) -> None:
     )
     print("-" * 112)
     for name, loan, payment, final_payment, total_repaid, total_interest in computed:
+        schedule = loan["schedule"]
+        payoff_note = ""
+        if (
+            schedule
+            and schedule[-1]["balance"] == 0
+            and schedule[-1]["month"] < loan["months"]
+        ):
+            payoff_note = f"  (paid off in month {schedule[-1]['month']})"
         marker = (
             "  <- lowest interest"
             if total_interest == lowest_interest and len(computed) > 1
@@ -203,7 +211,7 @@ def print_comparison_table(options: list[tuple[str, dict]]) -> None:
             f"{loan['annual_rate']:>8.2f}{format_term(loan['months']):>12}"
             f"{format_currency(payment):>14}{format_currency(final_payment):>16}"
             f"{format_currency(total_repaid):>17}"
-            f"{format_currency(total_interest):>15}{marker}"
+            f"{format_currency(total_interest):>15}{marker}{payoff_note}"
         )
 
 
