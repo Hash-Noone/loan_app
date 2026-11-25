@@ -3,12 +3,12 @@
 import sys
 
 from calculations import (
-    build_schedule,
+    IncompletePayoffError,
+    build_payoff_schedule,
     calculate_early_settlement,
     calculate_flat_rate_loan,
-    calculate_formula_totals,
     calculate_max_loan_for_payment,
-    calculate_months_needed,
+    calculate_schedule_quote,
     calculate_schedule_totals,
     evaluate_extra_payment,
     find_equivalent_reducing_rate,
@@ -124,11 +124,13 @@ def prompt_loan_inputs() -> tuple[float, float, int]:
 
 
 def print_loan_summary(loan: dict) -> None:
-    payment, total_repaid, total_interest = calculate_formula_totals(
-        loan["amount"], loan["annual_rate"], loan["months"]
+    payment, final_payment, total_repaid, total_interest = calculate_schedule_quote(
+        loan["schedule"]
     )
     print()
     print(f"Monthly payment: {format_currency(payment)}")
+    if final_payment != payment:
+        print(f"Final payment:   {format_currency(final_payment)}")
     print(f"Total repaid:    {format_currency(total_repaid)}")
     print(f"Total interest:  {format_currency(total_interest)}")
 
@@ -178,19 +180,19 @@ def print_comparison_table(options: list[tuple[str, dict]]) -> None:
     """Display side-by-side totals for multiple `(label, loan)` pairs."""
     computed = []
     for name, loan in options:
-        payment, total_repaid, total_interest = calculate_formula_totals(
-            loan["amount"], loan["annual_rate"], loan["months"]
+        payment, final_payment, total_repaid, total_interest = calculate_schedule_quote(
+            loan["schedule"]
         )
-        computed.append((name, loan, payment, total_repaid, total_interest))
+        computed.append((name, loan, payment, final_payment, total_repaid, total_interest))
 
-    lowest_interest = min(item[4] for item in computed)
+    lowest_interest = min(item[-1] for item in computed)
     print()
     print(
         f"{'Option':<16}{'Amount':>14}{'Rate %':>8}{'Term':>12}"
-        f"{'Monthly':>14}{'Total repaid':>17}{'Interest':>15}"
+        f"{'Monthly':>14}{'Final payment':>16}{'Total repaid':>17}{'Interest':>15}"
     )
-    print("-" * 96)
-    for name, loan, payment, total_repaid, total_interest in computed:
+    print("-" * 112)
+    for name, loan, payment, final_payment, total_repaid, total_interest in computed:
         marker = (
             "  <- lowest interest"
             if total_interest == lowest_interest and len(computed) > 1
@@ -199,7 +201,8 @@ def print_comparison_table(options: list[tuple[str, dict]]) -> None:
         print(
             f"{name[:15]:<16}{format_currency(loan['amount']):>14}"
             f"{loan['annual_rate']:>8.2f}{format_term(loan['months']):>12}"
-            f"{format_currency(payment):>14}{format_currency(total_repaid):>17}"
+            f"{format_currency(payment):>14}{format_currency(final_payment):>16}"
+            f"{format_currency(total_repaid):>17}"
             f"{format_currency(total_interest):>15}{marker}"
         )
 
@@ -222,6 +225,14 @@ def handle_early_settlement(loan: dict) -> None:
     print(f"  Interest saved:       {format_currency(settlement['interest_saved'])}")
 
 
+def print_incomplete_payoff(error: IncompletePayoffError) -> None:
+    if error.months == 0:
+        print("The payment does not reduce the balance after rounding.")
+    else:
+        print(f"The loan is not repaid after {error.months:,} months.")
+    print(f"Remaining balance: {format_currency(error.balance)}")
+
+
 def handle_new_loan() -> None:
     amount, rate, months = prompt_loan_inputs()
     loan = create_loan(amount, rate, months)
@@ -237,13 +248,17 @@ def handle_new_loan() -> None:
 
     if prompt_yes_no("Try an extra monthly payment?"):
         extra = prompt_number("Extra amount per month: ", 0)
-        impact = evaluate_extra_payment(loan, extra)
         print(f"\nWith {format_currency(extra)} extra each month:")
-        print(
-            f"  Loan repaid in {impact['new_months']} months "
-            f"({impact['months_saved']} months sooner)"
-        )
-        print(f"  Interest saved: {format_currency(impact['interest_saved'])}")
+        try:
+            impact = evaluate_extra_payment(loan, extra)
+        except IncompletePayoffError as error:
+            print_incomplete_payoff(error)
+        else:
+            print(
+                f"  Loan repaid in {impact['new_months']} months "
+                f"({impact['months_saved']} months sooner)"
+            )
+            print(f"  Interest saved: {format_currency(impact['interest_saved'])}")
 
     if prompt_yes_no("Check an early settlement amount?"):
         handle_early_settlement(loan)
@@ -287,8 +302,9 @@ def handle_compare_options() -> None:
 
 def handle_flat_vs_reducing() -> None:
     amount, rate, months = prompt_loan_inputs()
-    red_payment, red_total, red_interest = calculate_formula_totals(
-        amount, rate, months
+    loan = create_loan(amount, rate, months)
+    red_payment, red_final, red_total, red_interest = calculate_schedule_quote(
+        loan["schedule"]
     )
     flat = calculate_flat_rate_loan(amount, rate, months)
     equiv_rate = find_equivalent_reducing_rate(amount, flat["payment"], months)
@@ -300,6 +316,8 @@ def handle_flat_vs_reducing() -> None:
         f"{'Monthly payment':<22}{format_currency(red_payment):>18}"
         f"{format_currency(flat['payment']):>18}"
     )
+    if red_final != red_payment:
+        print(f"{'Final payment':<22}{format_currency(red_final):>18}{'—':>18}")
     print(
         f"{'Total repaid':<22}{format_currency(red_total):>18}"
         f"{format_currency(flat['total']):>18}"
@@ -340,22 +358,12 @@ def handle_affordability() -> None:
         amount = prompt_amount()
         rate = prompt_rate()
         payment = prompt_number("Monthly payment you will pay: ", 0)
-        needed_months = calculate_months_needed(amount, rate, payment)
-
-        if needed_months is None:
-            min_interest = amount * rate / 100 / 12
-            print(
-                f"\nThat payment does not cover monthly interest "
-                f"({format_currency(min_interest)})."
-            )
-            print(
-                f"The loan would never be repaid. Pay more than "
-                f"{format_currency(min_interest)}."
-            )
+        try:
+            schedule = build_payoff_schedule(amount, rate, payment)
+        except IncompletePayoffError as error:
+            print()
+            print_incomplete_payoff(error)
         else:
-            schedule = build_schedule(
-                amount, rate, needed_months, payment_override=payment
-            )
             total_repaid, total_interest = calculate_schedule_totals(schedule)
             print(
                 f"\nTime needed: {len(schedule)} months "

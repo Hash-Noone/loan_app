@@ -10,12 +10,13 @@ DEFAULT_SCHEDULE_FILE = "loan_schedule.csv"
 
 def create_loan(amount: float, annual_rate: float, months: int) -> dict:
     """Build a loan dictionary with payment and full amortisation schedule."""
-    from calculations import build_schedule, calculate_monthly_payment
+    from calculations import build_schedule
 
+    schedule = build_schedule(amount, annual_rate, months)
     return {
         "amount": amount,
         "annual_rate": annual_rate,
         "months": months,
-        "payment": calculate_monthly_payment(amount, annual_rate, months),
-        "schedule": build_schedule(amount, annual_rate, months),
+        "payment": schedule[0]["payment"] if schedule else 0.0,
+        "schedule": schedule,
     }
