@@ -5,7 +5,7 @@ import json
 import os
 from datetime import datetime
 
-from calculations import calculate_formula_totals
+from calculations import calculate_schedule_quote
 from models import (
     DEFAULT_SCENARIO_FILE,
     DEFAULT_SCHEDULE_FILE,
@@ -57,8 +57,9 @@ def save_summary_text(
     loan: dict, filename: str = DEFAULT_SUMMARY_FILE
 ) -> str:
     """Append a formatted loan summary block and return the file path."""
-    payment, total_repaid, total_interest = calculate_formula_totals(
-        loan["amount"], loan["annual_rate"], loan["months"]
+    schedule = loan["schedule"]
+    payment, final_payment, total_repaid, total_interest = calculate_schedule_quote(
+        schedule
     )
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -71,6 +72,14 @@ def save_summary_text(
             f"({format_term(loan['months'])})\n"
         )
         handle.write(f"Monthly payment:      {format_currency(payment)}\n")
+        if final_payment != payment:
+            handle.write(f"Final payment:        {format_currency(final_payment)}\n")
+        if (
+            schedule
+            and schedule[-1]["balance"] == 0
+            and schedule[-1]["month"] < loan["months"]
+        ):
+            handle.write(f"Payoff month:         {schedule[-1]['month']}\n")
         handle.write(f"Total repaid:         {format_currency(total_repaid)}\n")
         handle.write(f"Total interest:       {format_currency(total_interest)}\n\n")
 

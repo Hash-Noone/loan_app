@@ -1,6 +1,17 @@
 """Pure amortisation, interest, affordability, and settlement calculations."""
 
-import math
+from collections.abc import Iterator
+from decimal import Decimal, ROUND_DOWN
+
+
+PAYOFF_MONTH_LIMIT = 10_000
+
+
+class IncompletePayoffError(ValueError):
+    def __init__(self, months: int, balance: float) -> None:
+        self.months = months
+        self.balance = balance
+        super().__init__(f"Balance of {balance:,.2f} remains after {months} months.")
 
 
 def calculate_exact_payment(amount: float, annual_rate: float, months: int) -> float:
@@ -26,6 +37,35 @@ def calculate_formula_totals(
     return round(exact, 2), total_repaid, total_interest
 
 
+def _to_cents(amount: float) -> int:
+    return round(Decimal(str(amount)) * 100)
+
+
+def _payment_cap_cents(payment: float) -> int:
+    return int((Decimal(str(payment)) * 100).to_integral_value(rounding=ROUND_DOWN))
+
+
+def _monthly_interest_cents(balance: int, annual_rate: Decimal) -> int:
+    return round(balance * annual_rate / 1200)
+
+
+def _schedule_rows(
+    balance: int, annual_rate: Decimal, payment: int, months: int, adjust_final: bool
+) -> Iterator[tuple[int, int, int, int]]:
+    for month in range(1, months + 1):
+        if balance <= 0:
+            break
+        interest = _monthly_interest_cents(balance, annual_rate)
+        if adjust_final and month == months:
+            principal = balance
+        elif not adjust_final and payment <= interest:
+            break
+        else:
+            principal = min(payment - interest, balance)
+        balance -= principal
+        yield month, interest, principal, balance
+
+
 def build_schedule(
     amount: float,
     annual_rate: float,
@@ -33,48 +73,65 @@ def build_schedule(
     extra_monthly: float = 0.0,
     payment_override: float | None = None,
 ) -> list[dict]:
-    """Generate a monthly amortisation schedule ending at a 0.00 balance."""
-    monthly_rate = annual_rate / 100 / 12
-    regular_payment = (
-        calculate_monthly_payment(amount, annual_rate, months)
-        if payment_override is None
-        else payment_override
-    )
-
-    balance = round(amount, 2)
-    schedule = []
-    month = 0
-
-    while balance > 0:
-        month += 1
-        interest = round(balance * monthly_rate, 2)
-        principal = round(regular_payment - interest + extra_monthly, 2)
-
-        if principal >= balance or (extra_monthly == 0 and month >= months):
-            principal = balance
-
-        paid = round(interest + principal, 2)
-        balance = round(balance - principal, 2)
-        schedule.append(
-            {
-                "month": month,
-                "payment": paid,
-                "interest": interest,
-                "principal": principal,
-                "balance": balance,
-            }
+    """Build a schedule; capped payments may leave a balance at the term limit."""
+    adjust_final = payment_override is None and extra_monthly == 0
+    balance_cents = _to_cents(amount)
+    rate = Decimal(str(annual_rate))
+    if payment_override is None:
+        regular_payment = max(
+            _to_cents(calculate_monthly_payment(amount, annual_rate, months)),
+            _monthly_interest_cents(balance_cents, rate),
         )
-        if month > 5000:  # Guard against runaway loops
-            break
+        payment = regular_payment + _payment_cap_cents(extra_monthly)
+        limit = months if adjust_final else PAYOFF_MONTH_LIMIT
+    else:
+        payment = _payment_cap_cents(payment_override) + _payment_cap_cents(
+            extra_monthly
+        )
+        limit = months
 
+    return [
+        {
+            "month": month,
+            "payment": (interest + principal) / 100,
+            "interest": interest / 100,
+            "principal": principal / 100,
+            "balance": balance / 100,
+        }
+        for month, interest, principal, balance in _schedule_rows(
+            balance_cents, rate, payment, limit, adjust_final
+        )
+    ]
+
+
+def _require_payoff(schedule: list[dict], amount: float) -> None:
+    balance = schedule[-1]["balance"] if schedule else _to_cents(amount) / 100
+    if balance > 0:
+        raise IncompletePayoffError(len(schedule), balance)
+
+
+def build_payoff_schedule(amount: float, annual_rate: float, payment: float) -> list[dict]:
+    """Build a capped schedule, raising if it cannot clear within the payoff limit."""
+    schedule = build_schedule(
+        amount, annual_rate, PAYOFF_MONTH_LIMIT, payment_override=payment
+    )
+    _require_payoff(schedule, amount)
     return schedule
 
 
 def calculate_schedule_totals(schedule: list[dict]) -> tuple[float, float]:
     """Return (total_repaid, total_interest) summed from schedule rows."""
-    total_repaid = round(sum(row["payment"] for row in schedule), 2)
-    total_interest = round(sum(row["interest"] for row in schedule), 2)
+    total_repaid = sum(_to_cents(row["payment"]) for row in schedule) / 100
+    total_interest = sum(_to_cents(row["interest"]) for row in schedule) / 100
     return total_repaid, total_interest
+
+
+def calculate_schedule_quote(schedule: list[dict]) -> tuple[float, float, float, float]:
+    """Return the first and last payments, total repaid, and interest."""
+    if not schedule:
+        return 0.0, 0.0, 0.0, 0.0
+    total_repaid, total_interest = calculate_schedule_totals(schedule)
+    return schedule[0]["payment"], schedule[-1]["payment"], total_repaid, total_interest
 
 
 def evaluate_extra_payment(loan: dict, extra_monthly: float) -> dict:
@@ -86,6 +143,7 @@ def evaluate_extra_payment(loan: dict, extra_monthly: float) -> dict:
         loan["months"],
         extra_monthly=extra_monthly,
     )
+    _require_payoff(accelerated_schedule, loan["amount"])
     _, base_interest = calculate_schedule_totals(base_schedule)
     _, accelerated_interest = calculate_schedule_totals(accelerated_schedule)
 
@@ -127,25 +185,36 @@ def calculate_max_loan_for_payment(
     payment: float, annual_rate: float, months: int
 ) -> float:
     """Largest principal affordable given a monthly payment cap, rate, and term."""
-    monthly_rate = annual_rate / 100 / 12
-    if monthly_rate == 0:
-        return payment * months
-    return payment * (1 - (1 + monthly_rate) ** -months) / monthly_rate
+    payment_cents = _payment_cap_cents(payment)
+    low, high = 0, payment_cents * months
+    if annual_rate == 0:
+        return high / 100
+
+    rate = Decimal(str(annual_rate))
+    while low < high:
+        principal = (low + high + 1) // 2
+        balance = principal
+        for _, _, _, balance in _schedule_rows(
+            principal, rate, payment_cents, months, adjust_final=False
+        ):
+            pass
+        if balance == 0:
+            low = principal
+        else:
+            high = principal - 1
+    return low / 100
 
 
 def calculate_months_needed(
     amount: float, annual_rate: float, payment: float
 ) -> int | None:
-    """Months required to clear `amount` at `payment`, or None if never repaid."""
-    monthly_rate = annual_rate / 100 / 12
-    if monthly_rate == 0:
-        return math.ceil(amount / payment)
-    if payment <= amount * monthly_rate:
-        return None
-    raw_months = -math.log(1 - amount * monthly_rate / payment) / math.log(
-        1 + monthly_rate
-    )
-    return math.ceil(raw_months - 1e-9)
+    """Return the capped payoff term, or None if the payment cannot reduce principal."""
+    try:
+        return len(build_payoff_schedule(amount, annual_rate, payment))
+    except IncompletePayoffError as error:
+        if error.months == 0:
+            return None
+        raise
 
 
 def calculate_early_settlement(loan: dict, after_month: int) -> dict:
