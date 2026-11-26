@@ -13,6 +13,8 @@ from calculations import (
     evaluate_extra_payment,
     find_equivalent_reducing_rate,
 )
+
+
 from models import DEFAULT_SUMMARY_FILE, MAX_MONTHS, MAX_RATE, create_loan
 from storage import (
     format_currency,

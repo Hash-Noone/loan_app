@@ -9,9 +9,14 @@ Built strictly with the **Python Standard Library** (`csv`, `json`, `math`, `os`
 ## Features
 
 - **Reducing-Balance Loan Calculator:** Computes fixed monthly payments, total repayment, total interest, and a month-by-month amortisation schedule guaranteed to close at a `0.00` balance.
+
 - **Extra Payment Simulator:** Calculates how many months and how much interest you save by adding a fixed extra principal payment each month.
+
 - **Multi-Option Comparison:** Compares 2 to 3 loan offers side-by-side and highlights the lowest-interest option.
-- **Flat-Rate vs. Reducing-Balance Analysis:** Demonstrates the true cost difference between flat-rate and reducing-balance loans and computes the equivalent reducing-balance APR via bisection search.
+- **Flat-Rate vs. Reducing-Balance Analysis:**
+Flat rate interest calculates interest on the full original loan amount for the entire duration, while reducing balance interest calculates interest only on the remaining unpaid principal after each payment. Because of this difference, a reducing balance loan is much cheaper than a flat rate loan at the same advertised percentage.Demonstrates the true cost difference between flat-rate and reducing-balance loans and computes the equivalent reducing-balance APR via bisection search.
+
+
 - **Affordability & Payoff Term Solver:**
   - Finds the maximum principal you can borrow given a monthly budget, rate, and term.
   - Calculates the exact months needed to pay off a target loan at a fixed monthly payment (and warns when a payment fails to cover monthly interest).
@@ -22,11 +27,13 @@ Built strictly with the **Python Standard Library** (`csv`, `json`, `math`, `os`
   - Exports full amortisation schedules to `loan_schedule.csv`.
   - Saves, lists, and compares named scenarios in `loan_scenarios.json`.
 
+
 ---
 
 ## Project Structure
 
 ```text
+
 loan_app/
 ├── models.py        # Domain constants and loan dictionary factory
 ├── calculations.py  # Pure financial math (amortisation, flat rate, affordability, settlement)
@@ -40,7 +47,7 @@ loan_app/
 
 # Loan Calculator
 
-## Module Responsibilities
+### Module Responsibilities
 
 | Module | Responsibility |
 |---|---|
@@ -59,7 +66,6 @@ loan_app/
 - No third-party packages required.
 
 ### Running the Application
-
 Navigate into the directory containing `main.py` and run:
 
 ```bash
@@ -111,7 +117,7 @@ $$
 M = \frac{P \cdot r}{1 - (1 + r)^{-n}}
 $$
 
-Where:
+This formula is called the loan amortization formula (or equated monthly installment (EMI) formula). It calculates the fixed, regular payment required to completely pay off a loan—covering both principal and interest—over a set period.
 
 - `P` = Principal loan amount.
 - `r` = Monthly interest rate.

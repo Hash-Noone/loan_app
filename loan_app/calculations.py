@@ -33,6 +33,7 @@ def build_schedule(
     extra_monthly: float = 0.0,
     payment_override: float | None = None,
 ) -> list[dict]:
+    
     """Generate a monthly amortisation schedule ending at a 0.00 balance."""
     monthly_rate = annual_rate / 100 / 12
     regular_payment = (
@@ -68,6 +69,7 @@ def build_schedule(
             break
 
     return schedule
+
 
 
 def calculate_schedule_totals(schedule: list[dict]) -> tuple[float, float]:

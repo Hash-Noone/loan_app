@@ -8,7 +8,10 @@ DEFAULT_SUMMARY_FILE = "loan_summaries.txt"
 DEFAULT_SCHEDULE_FILE = "loan_schedule.csv"
 
 
+
+
 def create_loan(amount: float, annual_rate: float, months: int) -> dict:
+
     """Build a loan dictionary with payment and full amortisation schedule."""
     from calculations import build_schedule, calculate_monthly_payment
 

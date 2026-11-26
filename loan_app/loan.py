@@ -1,24 +1,3 @@
-"""
-Project 14 - Loan Calculator (standard library only)
-
-Shared data structure (a "loan" dictionary) passed between all parts:
-    {
-        "amount":      float,   # loan principal
-        "annual_rate": float,   # annual interest rate in %
-        "months":      int,     # term in months
-        "payment":     float,   # fixed monthly payment (rounded to cents)
-        "schedule":    list,    # list of row dicts (see build_schedule)
-    }
-A schedule row is:
-    {"month": int, "payment": float, "interest": float,
-     "principal": float, "balance": float}
-
-Sections (matching the suggested role split):
-    A. CALCULATIONS      - formulas, schedules, extra payments, flat rate,
-                           affordability, early settlement
-    B. DISPLAY AND INPUT - validated input, tables, chart, menus
-    C. DATA AND FILES    - CSV, text summaries, JSON scenarios, self-tests
-"""
 
 import csv
 import json
@@ -33,19 +12,11 @@ MAX_RATE = 100.0       # sensible upper limit for annual rate (%)
 MAX_MONTHS = 600       # 50 years
 
 
-             
-             
-             
-             
-             
-             
-             
+    
              # A. CALCULATIONS
 
 def payment_exact(amount, annual_rate, months):
-
     """Fixed monthly payment (unrounded): P*r / (1 - (1+r)^-n)."""
-
     r = annual_rate / 100 / 12
     if r == 0:
         return amount / months
@@ -189,9 +160,7 @@ def early_settlement(loan, month):
     }
 
 
-# =====================================================================
 # B. DISPLAY AND INPUT
-# =====================================================================
 def money(x):
     return f"{x:,.2f}"
 
@@ -236,6 +205,7 @@ def ask_rate():
 
 
 def ask_term():
+    
     """Term in years or months, returned as whole months."""
     while True:
         unit = ask("Enter term in (Y)ears or (M)onths? [Y/M]: ").lower()
@@ -395,14 +365,17 @@ def action_compare():
 
 
 def action_flat_vs_reducing():
+
     amount, rate, months = ask_loan_inputs()
     red_pay, red_total, red_int = totals_from_formula(amount, rate, months)
     flat = flat_rate_loan(amount, rate, months)
     eq = equivalent_reducing_rate(amount, flat["payment"], months)
+
     print(f"\n{'':<22}{'Reducing balance':>18}{'Flat rate':>18}")
     print(f"{'Monthly payment':<22}{money(red_pay):>18}{money(flat['payment']):>18}")
     print(f"{'Total repaid':<22}{money(red_total):>18}{money(flat['total']):>18}")
     print(f"{'Total interest':<22}{money(red_int):>18}{money(flat['interest']):>18}")
+
     diff = round(flat["interest"] - red_int, 2)
     print(f"\nThe flat-rate loan costs {money(diff)} more in interest.")
     print("Why: with a reducing balance, interest is charged only on what you")
@@ -414,8 +387,10 @@ def action_flat_vs_reducing():
 
 
 def action_affordability():
+
     print("\n1) Largest loan I can afford (given payment, rate and term)")
     print("2) Term needed to repay a loan (given payment and rate)")
+
     choice = ask("Choose 1 or 2: ")
     if choice == "1":
         pay = ask_number("Maximum monthly payment: ", 0)
@@ -445,10 +420,12 @@ def action_affordability():
 
 
 def action_scenarios():
+
     print("\n1) Save a new scenario")
     print("2) List saved scenarios")
     print("3) Compare saved scenarios (table + balance charts)")
     choice = ask("Choose 1-3: ")
+
     if choice == "1":
         name = ask("Scenario name: ")
         if not name:
@@ -487,9 +464,7 @@ def action_scenarios():
         print("Invalid choice.")
 
 
-# =====================================================================
 # C. DATA AND FILES
-# =====================================================================
 def save_schedule_csv(loan, filename=None):
     sched = loan["schedule"]
     # final balance must be exactly 0 after rounding
@@ -506,10 +481,13 @@ def save_schedule_csv(loan, filename=None):
 
 
 def save_summary_text(loan, filename=SUMMARY_FILE):
+
     pay, total, interest = totals_from_formula(
         loan["amount"], loan["annual_rate"], loan["months"])
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     with open(filename, "a", encoding="utf-8") as f:
+
         f.write(f"=== Loan calculation - {stamp} ===\n")
         f.write(f"Loan amount:          {money(loan['amount'])}\n")
         f.write(f"Annual interest rate: {loan['annual_rate']}%\n")
@@ -600,9 +578,8 @@ def run_tests():
     print(f"All {tests} self-tests passed.")
 
 
-# =====================================================================
 # MAIN MENU
-# =====================================================================
+
 MENU = """
 ==================== LOAN CALCULATOR ====================
  1. Calculate a loan (payment, schedule, extras)
@@ -627,19 +604,24 @@ ACTIONS = {
 
 
 def main():
+
     if "--test" in sys.argv:
         run_tests()
         return
+    
     while True:
         print(MENU)
         choice = ask("Choose an option: ")
+        
         if choice == "0":
             print("Goodbye!")
             return
         action = ACTIONS.get(choice)
+        
         if action is None:
             print("Please choose a number from the menu.")
             continue
+        
         while True:
             action()
             if choice == "7" or not ask_yes_no("\nCalculate another?"):

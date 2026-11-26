@@ -60,9 +60,10 @@ def save_summary_text(
     payment, total_repaid, total_interest = calculate_formula_totals(
         loan["amount"], loan["annual_rate"], loan["months"]
     )
+    
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     with open(filename, "a", encoding="utf-8") as handle:
+
         handle.write(f"=== Loan calculation - {timestamp} ===\n")
         handle.write(f"Loan amount:          {format_currency(loan['amount'])}\n")
         handle.write(f"Annual interest rate: {loan['annual_rate']}%\n")
@@ -70,6 +71,7 @@ def save_summary_text(
             f"Term:                 {loan['months']} months "
             f"({format_term(loan['months'])})\n"
         )
+
         handle.write(f"Monthly payment:      {format_currency(payment)}\n")
         handle.write(f"Total repaid:         {format_currency(total_repaid)}\n")
         handle.write(f"Total interest:       {format_currency(total_interest)}\n\n")
@@ -103,5 +105,6 @@ def save_scenario(
         "annual_rate": annual_rate,
         "months": months,
     }
+
     with open(filename, "w", encoding="utf-8") as handle:
         json.dump(scenarios, handle, indent=2)

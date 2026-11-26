@@ -6,3 +6,27 @@ Monthly payment:      3,361.15
 Total repaid:         10,083.45
 Total interest:       83.45
 
+=== Loan calculation - 2026-11-25 08:03:17 ===
+Loan amount:          1,000,000.00
+Annual interest rate: 10.0%
+Term:                 12 months (1 year)
+Monthly payment:      87,915.89
+Total repaid:         1,054,990.65
+Total interest:       54,990.65
+
+=== Loan calculation - 2026-11-25 08:07:30 ===
+Loan amount:          1,000,000.00
+Annual interest rate: 10.0%
+Term:                 12 months (1 year)
+Monthly payment:      87,915.89
+Total repaid:         1,054,990.65
+Total interest:       54,990.65
+
+=== Loan calculation - 2026-11-26 08:48:57 ===
+Loan amount:          1,000,000.00
+Annual interest rate: 12.0%
+Term:                 24 months (2 years)
+Monthly payment:      47,073.47
+Total repaid:         1,129,763.33
+Total interest:       129,763.33
+
